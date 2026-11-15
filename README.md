@@ -36,6 +36,16 @@ ssh -N -o ExitOnForwardFailure=yes \
 
 Keep the SSH session open. Set your browser's HTTP proxy to `127.0.0.1:4444`, use `127.0.0.1:4445` for SOCKS5 apps that resolve hostnames through the proxy, or point your IRC client at `127.0.0.1:6668` or `127.0.0.1:6669`. You can omit forwards for services you don't use.
 
+## Docker with user namespace remapping
+
+Docker rejects host networking when the service uses Docker's user namespace remapping. On a rootful Docker Engine configured with `userns-remap`, use the override to opt the i2pd service out of Docker's remapping and keep the SSH forwarding setup:
+
+```sh
+docker compose -f docker-compose.yml -f compose.userns-remap.yml up -d --build i2pd
+```
+
+Use both files on that host whenever you recreate i2pd. The override gives up Docker's UID/GID remapping for the i2pd process. The Docker daemon and other services keep their existing settings, and an outer LXC guest keeps its own user namespace configuration.
+
 ## Restart and recovery
 
 Docker restarts the router after a process exit or daemon restart. A router with a usable peer database starts from its saved state. If it needs to reseed, it reads the local bundle. The i2pd config leaves the network reseed lists empty, so a missing, outdated, or rejected bundle requires a fresh download through the helper. Normal I2P peer traffic uses the router's own network connections.
