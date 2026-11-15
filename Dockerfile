@@ -1,61 +1,19 @@
-FROM alpine:latest
+FROM alpine:latest AS reseed
+
+RUN apk --no-cache add ca-certificates curl tor
+
+COPY --chmod=0755 container/fetch_reseed.sh /usr/local/bin/fetch-reseed
+
+ENTRYPOINT ["/usr/local/bin/fetch-reseed"]
+
+FROM alpine:latest AS router
 
 LABEL maintainer="Chris Bensch <chris.bensch@gmail.com>"
 
-COPY data/ /home/i2pd/data/
-COPY entrypoint.sh /entrypoint.sh
+RUN apk --no-cache add i2pd
 
-RUN mkdir -p /home/i2pd/bin && \  
-  apk --no-cache --virtual build-dependendencies add \
-    cmake \
-    make \
-    gcc \
-    g++ \
-    binutils \
-    libtool \
-    libev-dev \
-    check-dev \
-    zlib-dev \
-    boost-dev \
-    build-base \
-    openssl-dev \
-    openssl \
-    git \
-    autoconf \
-    automake \
-    miniupnpc-dev \
-    upx \
-  && cd /tmp \
-  && I2PD_VERSION=$(wget -qO - https://api.github.com/repos/purplei2p/i2pd/releases/latest | grep 'tag_name'| cut -d'"' -f 4) \
-  && git clone --depth 1 --branch $I2PD_VERSION https://github.com/PurpleI2P/i2pd.git \
-  && cd /tmp/i2pd/build \
-  && cmake -DWITH_AESNI=ON -DWITH_UPNP=ON . \
-  # Sloooooooooow
-  && make \
-  && strip i2pd \
-  # Optimize for size, but slows down build dramatically
-  #&& upx --ultra-brute i2pd \
-  && mv /tmp/i2pd/build/i2pd /home/i2pd/bin/i2pd \
-  # clean up /tmp
-  && cd /home/i2pd \
-  && rm -rf /tmp/i2pd \
-  # remove build dependencies
-  && apk --no-cache --purge del build-dependendencies \
-  # i2p runtime dependencies
-  && apk --no-cache add \
-    boost-filesystem \
-    boost-system \
-    boost-program_options \
-    boost-date_time \
-    openssl \
-    musl-utils \
-    libstdc++ \
-    sed \
-    miniupnpc-dev \
-  && addgroup -g 1000 i2pd \
-  && adduser -u 1000 -G i2pd -s /bin/sh -h "/home/i2pd" -D i2pd \
-  && chown -R i2pd:i2pd /home/i2pd \
-  && chmod 0700 /home/i2pd/bin/i2pd \
-  && chmod +x /entrypoint.sh 
+COPY config/i2pd.conf config/subscriptions.txt config/tunnels.conf container/start_i2pd.sh /etc/i2pd/
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/etc/i2pd/start_i2pd.sh"]
+
+# Mount a dedicated data directory at /var/lib/i2pd to retain router state.

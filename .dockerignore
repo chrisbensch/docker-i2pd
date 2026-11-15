@@ -1,0 +1,7 @@
+*
+!container/
+!container/**
+!config/
+!config/i2pd.conf
+!config/subscriptions.txt
+!config/tunnels.conf
